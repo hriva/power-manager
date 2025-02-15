@@ -7,6 +7,16 @@ This utilities automatizes the energy handling in laptops without user interacti
 The use of these scripts requires `tuned-ppd` daemon to work.
 Support for `powerprofilectl` might come latter.
 
+## Install
+```sh
+sudo make install
+```
+
+### Uninstall
+```sh
+sudo make uninstall
+```
+
 ## Troubleshoot
 Check that the service started correctly and is working.
 ```
