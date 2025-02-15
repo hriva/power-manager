@@ -1,0 +1,13 @@
+[Unit]
+Description=EPP Profile Switcher Service
+After=dbus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/power-profiler
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

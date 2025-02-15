@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+# vi:ft=py
+
+import dbus
+import dbus.mainloop.glib
+from gi.repository import GLib
+import subprocess
+
+# Mapping power profiles to EPP values
+EPP_MAPPING = {"power-saver": "power", "balanced": "balance_power"}
+
+# Define preferred profiles for AC and battery power
+AC_PROFILE = "balanced"
+BATTERY_PROFILE = "power-saver"
+
+class PowerManager:
+    def __init__(self):
+        try:
+            self.bus = dbus.SystemBus()
+
+            # Initialize power profiles interface
+            self.power_profiles_proxy = self.bus.get_object(
+                'net.hadess.PowerProfiles',
+                '/net/hadess/PowerProfiles'
+            )
+            self.power_profiles_interface = dbus.Interface(
+                self.power_profiles_proxy,
+                'org.freedesktop.DBus.Properties'
+            )
+
+            # Initialize UPower interface
+            self.upower_proxy = self.bus.get_object(
+                'org.freedesktop.UPower',
+                '/org/freedesktop/UPower/devices/line_power_AC0'
+            )
+            self.upower_interface = dbus.Interface(
+                self.upower_proxy,
+                'org.freedesktop.DBus.Properties'
+            )
+        except dbus.exceptions.DBusException as e:
+            print(f"Failed to initialize DBus interfaces: {e}")
+            raise
+
+    def set_power_profile(self, profile):
+        """
+        Sets the power profile using DBus.
+        """
+        try:
+            self.power_profiles_interface.Set(
+                'net.hadess.PowerProfiles',
+                'ActiveProfile',
+                profile
+            )
+            print(f"Power profile set to: {profile}")
+        except dbus.exceptions.DBusException as e:
+            print(f"Failed to set power profile to '{profile}': {e}")
+
+    def set_epp(self, preference):
+        """
+        Sets the energy performance preference (EPP) using echo and tee.
+        """
+        command = f"echo {preference} | sudo tee /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference"
+        try:
+            subprocess.run(command, shell=True, check=True, executable="/bin/bash", stdout=subprocess.DEVNULL)
+            print(f"EPP set to '{preference}'.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to set EPP to '{preference}': {e}")
+
+    def handle_ac_power_changed(self, interface_name, changed_properties, invalidated_properties):
+        """
+        DBus signal callback for AC power status changes.
+        """
+        if "Online" in changed_properties:
+            is_online = changed_properties["Online"]
+            print(f"AC power {'connected' if is_online else 'disconnected'}")
+            # Set appropriate power profile based on AC status
+            new_profile = AC_PROFILE if is_online else BATTERY_PROFILE
+            self.set_power_profile(new_profile)
+
+    def handle_profile_changed(self, interface_name, changed_properties, invalidated_properties):
+        """
+        DBus signal callback for power profile changes.
+        """
+        if "ActiveProfile" in changed_properties:
+            new_profile = changed_properties["ActiveProfile"]
+            print(f"Power profile changed to: {new_profile}")
+            if new_profile in EPP_MAPPING:
+                self.set_epp(EPP_MAPPING[new_profile])
+            else:
+                print("No EPP mapping for this profile.")
+
+def main():
+    # Set up the main loop for DBus signal handling
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+    try:
+        power_manager = PowerManager()
+    except Exception as e:
+        print(f"Failed to initialize PowerManager: {e}")
+        return 1
+
+    # Subscribe to AC power status changes
+    power_manager.bus.add_signal_receiver(
+        power_manager.handle_ac_power_changed,
+        signal_name="PropertiesChanged",
+        dbus_interface="org.freedesktop.DBus.Properties",
+        path="/org/freedesktop/UPower/devices/line_power_AC0"
+    )
+
+    # Subscribe to power profile changes
+    power_manager.bus.add_signal_receiver(
+        power_manager.handle_profile_changed,
+        signal_name="PropertiesChanged",
+        dbus_interface="org.freedesktop.DBus.Properties",
+        path="/net/hadess/PowerProfiles"
+    )
+
+    print("Monitoring AC power and power profile changes...")
+
+    # Get initial AC power state and set appropriate profile
+    try:
+        is_online = power_manager.upower_interface.Get(
+            'org.freedesktop.UPower.Device',
+            'Online'
+        )
+        initial_profile = AC_PROFILE if is_online else BATTERY_PROFILE
+        power_manager.set_power_profile(initial_profile)
+    except dbus.exceptions.DBusException as e:
+        print(f"Failed to get initial AC power state: {e}")
+
+    try:
+        loop = GLib.MainLoop()
+        loop.run()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    except Exception as e:
+        print(f"Error in main loop: {e}")
+        return 1
+
+    return 0
+
+if __name__ == "__main__":
+    exit(main())
