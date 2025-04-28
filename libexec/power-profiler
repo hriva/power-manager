@@ -84,10 +84,10 @@ class PowerManager:
         if "ActiveProfile" in changed_properties:
             new_profile = changed_properties["ActiveProfile"]
             print(f"Power profile changed to: {new_profile}")
-            if new_profile in EPP_MAPPING:
-                self.set_epp(EPP_MAPPING[new_profile])
-            else:
-                print("No EPP mapping for this profile.")
+            # if new_profile in EPP_MAPPING:
+            #     self.set_epp(EPP_MAPPING[new_profile])
+            # else:
+            #     print("No EPP mapping for this profile.")
 
 def main():
     # Set up the main loop for DBus signal handling
