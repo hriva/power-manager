@@ -31,7 +31,7 @@ class PowerManager:
             # Initialize UPower interface
             self.upower_proxy = self.bus.get_object(
                 'org.freedesktop.UPower',
-                '/org/freedesktop/UPower/devices/line_power_AC0'
+                '/org/freedesktop/UPower/devices/line_power_ACAD'
             )
             self.upower_interface = dbus.Interface(
                 self.upower_proxy,
@@ -104,7 +104,7 @@ def main():
         power_manager.handle_ac_power_changed,
         signal_name="PropertiesChanged",
         dbus_interface="org.freedesktop.DBus.Properties",
-        path="/org/freedesktop/UPower/devices/line_power_AC0"
+        path="/org/freedesktop/UPower/devices/line_power_ACAD"
     )
 
     # Subscribe to power profile changes
