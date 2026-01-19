@@ -104,7 +104,7 @@ def main():
         power_manager.handle_ac_power_changed,
         signal_name="PropertiesChanged",
         dbus_interface="org.freedesktop.DBus.Properties",
-        path="/org/freedesktop/UPower/devices/line_power_AC0"
+        path="/org/freedesktop/UPower/devices/line_power_ACAD"
     )
 
     # Subscribe to power profile changes
